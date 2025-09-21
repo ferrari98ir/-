@@ -1,18 +1,4 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { db } from '../firebase';
-import {
-  collection,
-  onSnapshot,
-  addDoc,
-  doc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-  Timestamp,
-  getDocs,
-  query,
-  where,
-} from 'firebase/firestore';
 import type { Transaction, Product, User, InventoryData } from '../types';
 import { TransactionType } from '../types';
 import { INITIAL_PRODUCTS, WAREHOUSES, USERS, ADMIN_PASSWORD } from '../constants';
@@ -28,102 +14,21 @@ const initialTransactions: Omit<Transaction, 'id'>[] = [
 type CurrentUser = User | { id: 'admin'; name: 'مدیر کل' };
 
 export const useInventory = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>(() => 
+    initialTransactions.map((tx, i) => ({ ...tx, id: `tx-init-${i}`}))
+  );
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [users, setUsers] = useState<User[]>(USERS);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const seedDatabase = async () => {
-      try {
-        const productsQuery = query(collection(db, 'products'));
-        const productsSnap = await getDocs(productsQuery);
-        if (productsSnap.empty) {
-          console.log('Database is empty. Seeding initial data...');
-          const batch = writeBatch(db);
-          
-          INITIAL_PRODUCTS.forEach(p => {
-              const productRef = doc(collection(db, 'products'));
-              batch.set(productRef, { name: p.name, isDeleted: p.isDeleted || false });
-          });
-          
-          USERS.forEach(u => {
-              const userRef = doc(collection(db, 'users'));
-              batch.set(userRef, { name: u.name, password: u.password, isDeleted: u.isDeleted || false });
-          });
+    // Simulate initial data loading for better UX
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 500);
 
-          initialTransactions.forEach(tx => {
-              const txRef = doc(collection(db, 'transactions'));
-              batch.set(txRef, { ...tx, timestamp: Timestamp.fromMillis(tx.timestamp) });
-          });
-          
-          await batch.commit();
-          console.log('Seeding complete.');
-        }
-      } catch (error) {
-        console.error("Error seeding or checking database:", error);
-      }
-    };
-    
-    seedDatabase();
-
-    const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
-        const productsData = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                name: data.name,
-                isDeleted: data.isDeleted || false,
-            } as Product;
-        });
-        setProducts(productsData);
-    }, (error) => {
-      console.error("Error fetching products:", error);
-    });
-
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const usersData = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                name: data.name,
-                password: data.password,
-                isDeleted: data.isDeleted || false,
-            } as User;
-        });
-        setUsers(usersData);
-    }, (error) => {
-      console.error("Error fetching users:", error);
-    });
-
-    const unsubTransactions = onSnapshot(collection(db, 'transactions'), (snapshot) => {
-        const transactionsData = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                productId: data.productId,
-                warehouseId: data.warehouseId,
-                userId: data.userId,
-                type: data.type,
-                quantity: data.quantity,
-                timestamp: (data.timestamp as Timestamp).toMillis(),
-                description: data.description,
-            } as Transaction;
-        });
-        setTransactions(transactionsData);
-    }, (error) => {
-      console.error("Error fetching transactions:", error);
-    });
-
-    const timer = setTimeout(() => setLoading(false), 1500); // Give snapshots time to load
-
-    return () => {
-        unsubProducts();
-        unsubUsers();
-        unsubTransactions();
-        clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, []);
 
   const inventoryData = useMemo<InventoryData>(() => {
@@ -190,26 +95,34 @@ export const useInventory = () => {
       const currentStock = inventoryData[productId]?.stock?.[warehouseId] ?? 0;
       if (currentStock < quantity) throw new Error('موجودی انبار کافی نیست.');
     }
-    const transactionForDb = { ...newTransaction, timestamp: Timestamp.now() };
-    await addDoc(collection(db, 'transactions'), transactionForDb);
+    const transactionForDb: Transaction = { 
+        ...newTransaction, 
+        id: `tx-${Date.now()}`,
+        timestamp: Date.now() 
+    };
+    setTransactions(prev => [...prev, transactionForDb]);
   }, [inventoryData, users, currentUser]);
 
   const addUser = useCallback(async (name: string, password: string, adminPassword: string) => {
     if (adminPassword !== ADMIN_PASSWORD) throw new Error('رمز عبور مدیر صحیح نیست.');
     if (!name.trim()) throw new Error('نام کاربر نمی‌تواند خالی باشد.');
     if (!password.trim()) throw new Error('رمز عبور نمی‌تواند خالی باشد.');
-    const newUser = { name, password, isDeleted: false };
-    await addDoc(collection(db, 'users'), newUser);
+    const newUser: User = { 
+        id: `u-${Date.now()}`,
+        name: name.trim(), 
+        password, 
+        isDeleted: false 
+    };
+    setUsers(prev => [...prev, newUser]);
   }, []);
 
   const updateUser = useCallback(async (userId: string, updates: { name?: string; password?: string }, adminPassword: string) => {
     if (adminPassword !== ADMIN_PASSWORD) throw new Error('رمز عبور مدیر صحیح نیست.');
-    const userRef = doc(db, 'users', userId);
     const updateData: { name?: string; password?: string } = {};
     if (updates.name?.trim()) updateData.name = updates.name.trim();
     if (updates.password) updateData.password = updates.password;
     if (Object.keys(updateData).length > 0) {
-      await updateDoc(userRef, updateData);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updateData } : u));
     }
   }, []);
 
@@ -217,8 +130,7 @@ export const useInventory = () => {
     if (adminPassword !== ADMIN_PASSWORD) throw new Error('رمز عبور مدیر صحیح نیست.');
     const activeUsers = users.filter(u => !u.isDeleted);
     if (activeUsers.length <= 1) throw new Error('حداقل یک کاربر فعال باید در سیستم وجود داشته باشد.');
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { isDeleted: true });
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, isDeleted: true } : u));
   }, [users]);
 
   const addProduct = useCallback(async (name: string) => {
@@ -227,61 +139,63 @@ export const useInventory = () => {
     if (products.some(p => !p.isDeleted && p.name.toLowerCase() === name.toLowerCase().trim())) {
       throw new Error('کالایی با این نام از قبل وجود دارد.');
     }
-    await addDoc(collection(db, 'products'), { name: name.trim(), isDeleted: false });
+    const newProduct: Product = { 
+        id: `p-${Date.now()}`,
+        name: name.trim(), 
+        isDeleted: false 
+    };
+    setProducts(prev => [...prev, newProduct]);
   }, [products, currentUser]);
 
   const updateProduct = useCallback(async (id: string, name: string) => {
     if (currentUser?.id !== 'admin') throw new Error('فقط مدیر مجاز به ویرایش کالا است.');
     if (!name.trim()) throw new Error('نام کالا نمی‌تواند خالی باشد.');
-    const productRef = doc(db, 'products', id);
-    await updateDoc(productRef, { name: name.trim() });
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, name: name.trim() } : p));
   }, [currentUser]);
 
   const deleteProduct = useCallback(async (id: string, adminPassword: string) => {
     if (currentUser?.id !== 'admin') throw new Error('فقط مدیر مجاز به حذف کالا است.');
     if (adminPassword !== ADMIN_PASSWORD) throw new Error('رمز عبور مدیر صحیح نیست.');
     
-    const batch = writeBatch(db);
+    const newTransactions: Transaction[] = [];
     const productInventory = inventoryData[id];
     if (productInventory && productInventory.total > 0) {
       WAREHOUSES.forEach(warehouse => {
         const stock = productInventory.stock[warehouse.id] || 0;
         if (stock > 0) {
-          const outTxRef = doc(collection(db, 'transactions'));
-          batch.set(outTxRef, {
+          newTransactions.push({
+            id: `tx-del-out-${id}-${warehouse.id}-${Date.now()}`,
             productId: id,
             warehouseId: warehouse.id,
             userId: currentUser.id,
             type: TransactionType.OUT,
             quantity: stock,
-            timestamp: Timestamp.now(),
+            timestamp: Date.now(),
             description: 'حذف کالا و صفر کردن موجودی',
           });
         }
       });
     }
 
-    const deleteTxRef = doc(collection(db, 'transactions'));
-    batch.set(deleteTxRef, {
+    newTransactions.push({
+      id: `tx-del-${id}-${Date.now()}`,
       productId: id,
       userId: currentUser.id,
       type: TransactionType.DELETE,
       quantity: 0,
       warehouseId: WAREHOUSES[0]?.id || 'w1',
-      timestamp: Timestamp.fromMillis(Date.now() + 1),
+      timestamp: Date.now() + 1,
       description: 'ثبت حذف کالا در سیستم',
     });
-
-    const productRef = doc(db, 'products', id);
-    batch.update(productRef, { isDeleted: true });
-
-    await batch.commit();
+    
+    setTransactions(prev => [...prev, ...newTransactions]);
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, isDeleted: true } : p));
   }, [inventoryData, currentUser]);
 
   const deleteTransaction = useCallback(async (transactionId: string, adminPassword: string) => {
     if (currentUser?.id !== 'admin') throw new Error('فقط مدیر مجاز به حذف تراکنش است.');
     if (adminPassword !== ADMIN_PASSWORD) throw new Error('رمز عبور مدیر صحیح نیست.');
-    await deleteDoc(doc(db, 'transactions', transactionId));
+    setTransactions(prev => prev.filter(tx => tx.id !== transactionId));
   }, [currentUser]);
 
   const warehouseTotals = useMemo(() => {
