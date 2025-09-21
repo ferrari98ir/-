@@ -57,11 +57,11 @@ const UserLoginForm = () => {
     }
   }, [users, userId, availableUsers]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      login({ userId, password });
+      await login({ userId, password });
     } catch (err: any) {
       setError(err.message);
     }
@@ -117,11 +117,11 @@ const AdminLoginForm = () => {
   const [adminPassword, setAdminPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      login({ adminPassword });
+      await login({ adminPassword });
     } catch (err: any) {
       setError(err.message);
     }
