@@ -4,7 +4,7 @@ import type { Product } from '../types';
 interface ProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string | null, name: string) => string | void;
+  onSave: (id: string | null, name: string) => Promise<string | void | undefined>;
   product: Product | null;
 }
 
@@ -19,8 +19,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
     }
   }, [isOpen, product]);
 
-  const handleSave = () => {
-    const saveError = onSave(product?.id || null, name);
+  const handleSave = async () => {
+    const saveError = await onSave(product?.id || null, name);
     if (saveError) {
       setError(saveError);
     }

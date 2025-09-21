@@ -4,7 +4,7 @@ import type { User } from '../types';
 interface DeleteUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (userId: string, adminPassword: string) => void;
+  onConfirm: (userId: string, adminPassword: string) => Promise<void>;
   user: User | null;
 }
 
@@ -19,14 +19,14 @@ export const DeleteUserModal: React.FC<DeleteUserModalProps> = ({ isOpen, onClos
     }
   }, [isOpen]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!adminPassword) {
       setError('لطفا رمز عبور مدیر را وارد کنید.');
       return;
     }
     if (user) {
       try {
-        onConfirm(user.id, adminPassword);
+        await onConfirm(user.id, adminPassword);
         onClose(); // Close on success
       } catch (err: any) {
         setError(err.message);

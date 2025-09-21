@@ -4,7 +4,7 @@ import type { User } from '../types';
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (userId: string, updates: { name?: string; password?: string }, adminPassword: string) => void;
+  onConfirm: (userId: string, updates: { name?: string; password?: string }, adminPassword: string) => Promise<void>;
   user: User | null;
 }
 
@@ -23,7 +23,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
     }
   }, [isOpen, user]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setError('');
     if (!name.trim()) {
       setError('نام کاربر نمی‌تواند خالی باشد.');
@@ -43,7 +43,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
           updates.password = password;
         }
         if (Object.keys(updates).length > 0) {
-          onConfirm(user.id, updates, adminPassword);
+          await onConfirm(user.id, updates, adminPassword);
         }
         onClose();
       } catch (err: any) {

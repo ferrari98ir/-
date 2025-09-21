@@ -38,6 +38,11 @@ export const TransactionHistory: React.FC = () => {
   const filteredTransactions = useMemo(() => {
     return transactions
       .filter(tx => {
+        const product = products.find(p => p.id === tx.productId);
+        if (product?.isDeleted && tx.type !== TransactionType.DELETE) {
+          return false;
+        }
+
         if (selectedProduct && tx.productId !== selectedProduct) {
           return false;
         }
@@ -56,7 +61,7 @@ export const TransactionHistory: React.FC = () => {
         return true;
       })
       .sort((a, b) => b.timestamp - a.timestamp);
-  }, [transactions, selectedProduct, startDate, endDate]);
+  }, [transactions, selectedProduct, startDate, endDate, products]);
 
   const handleClearFilters = () => {
     setSelectedProduct('');
@@ -109,11 +114,11 @@ export const TransactionHistory: React.FC = () => {
   };
 
   const handleConfirmDelete = (transactionId: string, adminPassword: string) => {
-    try {
-      deleteTransaction(transactionId, adminPassword);
-    } catch (err) {
-      throw err; // Re-throw for the modal to display the error message
+    if (!isAdmin) {
+      throw new Error("شما مجاز به حذف تراکنش نیستید.");
     }
+    // The modal will await this promise
+    return deleteTransaction(transactionId, adminPassword);
   };
 
 
@@ -126,7 +131,7 @@ export const TransactionHistory: React.FC = () => {
         transaction={transactionToDelete}
         transactionDetails={transactionToDelete ? {
           productName: productMap[transactionToDelete.productId] || 'کالای حذف شده',
-          userName: userMap[transactionToDelete.userId] || 'ناشناس',
+          userName: userMap[transactionToDelete.userId] || (transactionToDelete.userId === 'admin' ? 'مدیر کل' : 'ناشناس'),
           description: transactionToDelete.description,
         } : null}
       />
@@ -202,7 +207,7 @@ export const TransactionHistory: React.FC = () => {
               {filteredTransactions.length > 0 ? (
                 filteredTransactions.map(tx => (
                   <tr key={tx.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{productMap[tx.productId]}</td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{productMap[tx.productId] || 'کالای حذف شده'}</td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{tx.type === TransactionType.DELETE ? '-' : warehouseMap[tx.warehouseId]}</td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{userMap[tx.userId] || (tx.userId === 'admin' ? 'مدیر کل' : 'ناشناس')}</td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-center">

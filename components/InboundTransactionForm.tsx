@@ -27,7 +27,7 @@ export const InboundTransactionForm: React.FC = () => {
     }
   }, [currentUser, isAdmin]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -52,7 +52,7 @@ export const InboundTransactionForm: React.FC = () => {
         quantity: numQuantity,
         description: description.trim(),
       };
-      addTransaction(newTransaction, password);
+      await addTransaction(newTransaction, password);
       setSuccess('تراکنش ورودی با موفقیت ثبت شد.');
       setQuantity('');
       setPassword('');

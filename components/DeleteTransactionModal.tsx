@@ -4,7 +4,7 @@ import type { Transaction } from '../types';
 interface DeleteTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (transactionId: string, adminPassword: string) => void;
+  onConfirm: (transactionId: string, adminPassword: string) => Promise<void>;
   transaction: Transaction | null;
   transactionDetails: { productName: string, userName: string, description: string } | null;
 }
@@ -20,14 +20,14 @@ export const DeleteTransactionModal: React.FC<DeleteTransactionModalProps> = ({ 
     }
   }, [isOpen]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!adminPassword) {
       setError('لطفا رمز عبور مدیر را وارد کنید.');
       return;
     }
     if (transaction) {
       try {
-        onConfirm(transaction.id, adminPassword);
+        await onConfirm(transaction.id, adminPassword);
         onClose(); // Close on success
       } catch (err: any) {
         setError(err.message);

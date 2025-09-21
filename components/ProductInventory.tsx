@@ -53,25 +53,21 @@ export const ProductInventory: React.FC = () => {
   };
 
   const handleConfirmDelete = (productId: string, adminPassword: string) => {
-    try {
-      deleteProduct(productId, adminPassword);
-      setIsDeleteModalOpen(false);
-      setDeletingProduct(null);
-    } catch(err) {
-      throw err;
-    }
+    // Let the modal handle async logic and errors by returning the promise
+    return deleteProduct(productId, adminPassword);
   };
 
-  const handleSave = (id: string | null, name: string) => {
+  const handleSave = async (id: string | null, name: string) => {
     try {
       setError(null);
       if (id) {
-        updateProduct(id, name);
+        await updateProduct(id, name);
       } else {
-        addProduct(name);
+        await addProduct(name);
       }
       setIsModalOpen(false);
     } catch (err: any) {
+      // Return error message for the modal to display
       return err.message;
     }
   };

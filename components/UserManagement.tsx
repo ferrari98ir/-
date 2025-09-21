@@ -18,7 +18,7 @@ export const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -27,7 +27,7 @@ export const UserManagement: React.FC = () => {
         return;
     }
     try {
-      addUser(newUserName, newUserPassword, adminPassword);
+      await addUser(newUserName, newUserPassword, adminPassword);
       setSuccess(`کاربر "${newUserName}" با موفقیت اضافه شد.`);
       setNewUserName('');
       setNewUserPassword('');
@@ -49,19 +49,11 @@ export const UserManagement: React.FC = () => {
   };
   
   const handleConfirmEdit = (userId: string, updates: { name?: string; password?: string }, adminPass: string) => {
-    try {
-      updateUser(userId, updates, adminPass);
-    } catch (err) {
-      throw err; // Re-throw for modal to display
-    }
+    return updateUser(userId, updates, adminPass);
   };
   
   const handleConfirmDelete = (userId: string, adminPass: string) => {
-     try {
-      deleteUser(userId, adminPass);
-    } catch (err) {
-      throw err; // Re-throw for modal to display
-    }
+     return deleteUser(userId, adminPass);
   };
 
   return (

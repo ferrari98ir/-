@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 interface DeleteProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (productId: string, adminPassword: string) => void;
+  onConfirm: (productId: string, adminPassword: string) => Promise<void>;
   product: { id: string; name: string } | null;
 }
 
@@ -18,14 +18,15 @@ export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ isOpen, 
     }
   }, [isOpen]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!adminPassword) {
       setError('لطفا رمز عبور مدیر را وارد کنید.');
       return;
     }
     if (product) {
       try {
-        onConfirm(product.id, adminPassword);
+        await onConfirm(product.id, adminPassword);
+        onClose(); // Close only on success
       } catch (err: any) {
         setError(err.message);
       }
