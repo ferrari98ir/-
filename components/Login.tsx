@@ -47,13 +47,19 @@ const UserLoginForm = () => {
   const { login, users } = useInventoryContext();
   const availableUsers = users.filter(u => !u.isDeleted);
   
-  const [userId, setUserId] = useState(availableUsers[0]?.id || '');
+  // Initialize state cleanly. useEffect will handle setting the default.
+  const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  // This effect syncs the selected user ID with the available users list.
+  // It ensures a valid user is selected by default and handles cases
+  // where the selected user might be deleted.
   useEffect(() => {
-    if (!userId && availableUsers.length > 0) {
-        setUserId(availableUsers[0].id);
+    const userIsSelectedAndValid = userId && availableUsers.some(u => u.id === userId);
+
+    if (!userIsSelectedAndValid && availableUsers.length > 0) {
+      setUserId(availableUsers[0].id);
     }
   }, [users, userId, availableUsers]);
 
@@ -61,6 +67,10 @@ const UserLoginForm = () => {
     e.preventDefault();
     setError('');
     try {
+      if (!userId) {
+        setError("لطفا یک کاربر را انتخاب کنید.");
+        return;
+      }
       await login({ userId, password });
     } catch (err: any) {
       setError(err.message);
@@ -79,11 +89,15 @@ const UserLoginForm = () => {
           onChange={(e) => setUserId(e.target.value)}
           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
         >
-          {availableUsers.map(user => (
-            <option key={user.id} value={user.id}>
-              {user.name}
-            </option>
-          ))}
+          {availableUsers.length === 0 ? (
+             <option value="" disabled>کاربری موجود نیست</option>
+          ) : (
+            availableUsers.map(user => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))
+          )}
         </select>
       </div>
       <div>
@@ -103,7 +117,8 @@ const UserLoginForm = () => {
       <div>
         <button
           type="submit"
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          disabled={!userId}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
         >
           ورود
         </button>

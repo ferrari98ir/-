@@ -13,7 +13,7 @@ export const OutboundTransactionForm: React.FC = () => {
 
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || '');
   const [productId, setProductId] = useState(products.find(p => !p.isDeleted)?.id || '');
-  const [userId, setUserId] = useState(isAdmin ? availableUsers[0]?.id : currentUser?.id || '');
+  const [userId, setUserId] = useState(isAdmin ? availableUsers[0]?.id || '' : currentUser?.id || '');
   const [quantity, setQuantity] = useState('');
   const [password, setPassword] = useState('');
   const [description, setDescription] = useState('');

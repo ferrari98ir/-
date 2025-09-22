@@ -122,7 +122,7 @@ export const UserManagement: React.FC = () => {
         
         <div>
           <h3 className="text-md font-medium text-gray-600 mb-2">کاربران فعلی</h3>
-          <ul className="space-y-2 max-h-40 overflow-y-auto">
+          <ul className="space-y-2 max-h-64 overflow-y-auto">
               {users.filter(u => !u.isDeleted).map(user => (
                   <li key={user.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-md text-sm">
                     <span>{user.name}</span>
