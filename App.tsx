@@ -58,21 +58,23 @@ const AppContent: React.FC = () => {
     if (dbError) {
       return (
         <div className="min-h-screen bg-slate-100 flex justify-center items-center p-4">
-            <div className="text-center p-8 bg-white rounded-lg shadow-xl max-w-lg">
+            <div className="text-center p-8 bg-white rounded-lg shadow-xl max-w-2xl">
                 <svg className="h-12 w-12 text-red-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
                 <h2 className="mt-4 text-xl font-bold text-gray-800">خطا در اتصال به پایگاه داده</h2>
-                <p className="mt-2 text-sm text-gray-600">
-                  هنگام بارگذاری اطلاعات برنامه خطایی رخ داد. این مشکل معمولاً به دلیل پیکربندی نادرست پایگاه داده است.
+                <p className="mt-2 text-gray-600">
+                  هنگام بارگذاری اطلاعات اولیه برنامه خطایی رخ داد. این مشکل معمولاً به دلیل پیکربندی نادرست پروژه Supabase است. لطفاً موارد زیر را بررسی کنید:
                 </p>
                 <div className="mt-4 text-xs text-left text-red-700 bg-red-50 p-3 rounded-md font-mono" dir="ltr">
-                  <p className="font-sans font-semibold text-right mb-1">پیام خطا:</p>
+                  <p className="font-sans font-semibold text-right mb-1">پیام خطای دریافتی:</p>
                   {dbError}
                 </div>
-                <p className="mt-4 text-sm text-gray-600">
-                    برای رفع مشکل، لطفاً اطمینان حاصل کنید که پالیسی‌های <strong>Row Level Security (RLS)</strong> برای جداول <code>products</code>, <code>users</code>, و <code>transactions</code> در پنل Supabase شما برای نقش <code>anon</code> جهت خواندن اطلاعات (SELECT) فعال شده باشند.
-                </p>
+                <div className="mt-6 text-right text-sm text-gray-700 space-y-3">
+                    <p><strong>۱. بررسی کلیدها و آدرس (URL):</strong> مطمئن شوید که آدرس پروژه و کلید عمومی (anon key) در فایل <code>firebase.ts</code> کاملا صحیح و مطابق با مقادیر موجود در داشبورد Supabase شما در بخش `Project Settings > API` است.</p>
+                    <p><strong>۲. بررسی پالیسی‌های RLS:</strong> اطمینان حاصل کنید که برای هر سه جدول <code>products</code>, <code>users</code>, و <code>transactions</code> پالیسی برای عملیات <strong>SELECT</strong> فعال شده باشد. این پالیسی باید به نقش <code>anon</code> (کاربران مهمان) اجازه خواندن بدهد. ساده‌ترین راه، استفاده از قالب "Enable read access to everyone" است.</p>
+                    <p><strong>۳. بررسی نام جداول:</strong> مطمئن شوید که نام جداول در پایگاه داده شما دقیقا <code>products</code>, <code>users</code>, و <code>transactions</code> (حروف کوچک و جمع) است.</p>
+                </div>
             </div>
         </div>
       );
