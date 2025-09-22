@@ -1,53 +1,40 @@
-import { createClient } from '@supabase/supabase-js';
-import type { Product, Transaction, User } from './types';
+// FIX: Reverted to Firebase v8 compat syntax to resolve module export error.
+// FIX: Use v9 compat imports to support v8 syntax.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
-// The Supabase URL and anon key are now hardcoded with the user's project details.
-const supabaseUrl = 'https://bjoosqbstrmijjkevlgw.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqb29zcWJzdHJuaWpqa2V3bGd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NzU2NDQsImV4cCI6MjA3NDA1MTY0NH0.vk1EmC7V6BwGAVmt_sukBR2aWFS2_fVSG9ftgmsJ01Y';
+// --- هشدار مهم ---
+// مقادیر زیر را با اطلاعات واقعی پروژه Firebase خود جایگزین کنید.
+// این اطلاعات را می‌توانید از بخش تنظیمات پروژه (Project Settings) در کنسول Firebase پیدا کنید.
+const firebaseConfig = {
+  apiKey: "AIzaSyCmgDmGeSpf6eWKleTMR3srLA6WCeYo5ng",
+  authDomain: "anbare-dd102.firebaseapp.com",
+  projectId: "anbare-dd102",
+  storageBucket: "anbare-dd102.firebasestorage.app",
+  messagingSenderId: "244278980400",
+  appId: "1:244278980400:web:633d05973f6da6ddca62f5"
+};
 
-// A custom type for the Supabase client to provide type safety.
-// This ensures that when we interact with tables like 'products',
-// the client knows about the specific row types (Product, User, Transaction).
-export type TypedSupabaseClient = ReturnType<typeof createClient<Database>>;
 
-interface Database {
-  public: {
-    Tables: {
-      products: {
-        Row: Product;
-        Insert: Omit<Product, 'id'>;
-        // FIX: Supabase's generic types can incorrectly resolve to `never` if the Update
-        // type allows modification of primary keys. Explicitly omitting `id` makes the
-        // type definition more precise and resolves the issue for update and insert operations.
-        Update: Partial<Omit<Product, 'id'>>;
-      };
-      users: {
-        Row: User;
-        Insert: Omit<User, 'id'>;
-        // FIX: Similar to the 'products' table, explicitly omitting the primary key `id` from
-        // the Update type prevents type inference issues that lead to `never`.
-        Update: Partial<Omit<User, 'id'>>;
-      };
-      transactions: {
-        Row: Transaction;
-        Insert: Omit<Transaction, 'id' | 'timestamp'>;
-        // FIX: For transactions, both the primary key `id` and the auto-generated `timestamp`
-        // should be omitted from the Update type to ensure type safety and prevent errors.
-        Update: Partial<Omit<Transaction, 'id' | 'timestamp'>>;
-      };
-    };
-  };
+// بررسی می‌کند که آیا پیکربندی با مقادیر واقعی پر شده است یا خیر
+const isConfigured = firebaseConfig.projectId !== "YOUR_PROJECT_ID" && firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+let app;
+// FIX: Explicitly typed `db` for Firebase v8 Firestore instance.
+let db: firebase.firestore.Firestore | null = null;
+
+if (isConfigured) {
+    try {
+        // FIX: Use v8 initialization syntax.
+        app = firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+    } catch (e) {
+        console.error("خطا در راه‌اندازی Firebase:", e);
+        // db null باقی می‌ماند و برنامه پیام خطا نمایش می‌دهد
+    }
+} else {
+    console.error("پیکربندی Firebase انجام نشده است. لطفاً فایل firebase.ts را با اطلاعات پروژه خود به‌روزرسانی کنید.");
 }
 
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  // Instead of throwing an error that crashes the app,
-  // we'll return a helpful message in the UI by exporting a null client.
-  // The useInventory hook will handle this case.
-  console.error("Supabase environment variables (SUPABASE_URL, SUPABASE_ANON_KEY) are not set.");
-}
-
-
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey)
-  : null;
+// نمونه Firestore را برای استفاده در سایر بخش‌های برنامه صادر می‌کند
+export { db };

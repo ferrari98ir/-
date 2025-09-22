@@ -12,6 +12,7 @@ export const TransactionHistory: React.FC = () => {
   const { addToast } = useToast();
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
@@ -40,6 +41,7 @@ export const TransactionHistory: React.FC = () => {
   [users]);
 
   const filteredTransactions = useMemo(() => {
+    const lowerCaseSearch = searchTerm.toLowerCase().trim();
     return transactions
       .filter(tx => {
         const product = products.find(p => p.id === tx.productId);
@@ -58,15 +60,30 @@ export const TransactionHistory: React.FC = () => {
           filterDateEnd.setHours(23, 59, 59, 999); // End of the day
           if (txDate < filterDateStart || txDate > filterDateEnd) return false;
         }
+
+        if (lowerCaseSearch) {
+          const productName = (productMap[tx.productId] || '').toLowerCase();
+          const userName = (userMap[tx.userId] || (tx.userId === 'admin' ? 'مدیر کل' : '')).toLowerCase();
+          const description = (tx.description || '').toLowerCase();
+          
+          if (
+            !productName.includes(lowerCaseSearch) &&
+            !userName.includes(lowerCaseSearch) &&
+            !description.includes(lowerCaseSearch)
+          ) {
+            return false;
+          }
+        }
+
         return true;
       })
       .sort((a, b) => b.timestamp - a.timestamp);
-  }, [transactions, selectedProduct, selectedDate, products]);
+  }, [transactions, selectedProduct, selectedDate, searchTerm, products, productMap, userMap]);
 
   // Reset to first page whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedProduct, selectedDate]);
+  }, [selectedProduct, selectedDate, searchTerm]);
 
   const pageCount = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
 
@@ -79,6 +96,7 @@ export const TransactionHistory: React.FC = () => {
   const handleClearFilters = () => {
     setSelectedProduct('');
     setSelectedDate('');
+    setSearchTerm('');
   };
 
   const handleExportCSV = () => {
@@ -145,9 +163,9 @@ export const TransactionHistory: React.FC = () => {
         } : null}
       />
       <Card title="تاریخچه تراکنش‌ها">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
           {/* Product Filter */}
-          <div>
+          <div className="md:col-span-1">
             <label htmlFor="product-filter" className="block text-sm font-medium text-gray-700">کالا</label>
             <select
               id="product-filter"
@@ -160,7 +178,7 @@ export const TransactionHistory: React.FC = () => {
             </select>
           </div>
           {/* Date Filter */}
-          <div>
+          <div className="md:col-span-1">
             <label htmlFor="date-filter" className="block text-sm font-medium text-gray-700">تاریخ</label>
             <input
               type="date"
@@ -170,17 +188,29 @@ export const TransactionHistory: React.FC = () => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
+          {/* Search Filter */}
+          <div className="sm:col-span-2 md:col-span-2">
+            <label htmlFor="search-filter" className="block text-sm font-medium text-gray-700">جستجو</label>
+            <input
+              type="text"
+              id="search-filter"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="جستجو در کالا، کاربر یا توضیحات..."
+            />
+          </div>
           {/* Action Buttons */}
-          <div className="self-end space-y-2 sm:space-y-0 sm:flex sm:space-x-2 sm:space-x-reverse">
+          <div className="sm:col-span-2 md:col-span-4 self-end flex justify-end space-x-2 space-x-reverse">
               <button
                   onClick={handleExportCSV}
-                  className="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="w-full sm:w-auto inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   خروجی CSV
                 </button>
               <button
                   onClick={handleClearFilters}
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="w-full sm:w-auto inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                   پاک کردن فیلترها
               </button>

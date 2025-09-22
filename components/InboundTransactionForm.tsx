@@ -7,7 +7,7 @@ import { ProductSearchModal } from './ProductSearchModal';
 import { useToast } from '../context/ToastContext';
 
 export const InboundTransactionForm: React.FC = () => {
-  const { addTransaction, products, warehouses, users, currentUser } = useInventoryContext();
+  const { addTransaction, products, warehouses, users, currentUser, inventoryData } = useInventoryContext();
   const { addToast } = useToast();
   
   const isAdmin = currentUser?.id === 'admin';
@@ -141,7 +141,10 @@ export const InboundTransactionForm: React.FC = () => {
                 onChange={(e) => setSelectedProductId(e.target.value)}
                 className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-r-md rounded-l-none"
               >
-                {availableProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {availableProducts.map(p => {
+                  const stock = inventoryData[p.id]?.total ?? 0;
+                  return <option key={p.id} value={p.id}>{p.name} (موجودی: {stock})</option>;
+                })}
               </select>
               <button
                 type="button"
