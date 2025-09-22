@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useInventoryContext } from '../context/InventoryContext';
 import { Card } from './Card';
@@ -8,19 +8,19 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 export const Dashboard: React.FC = () => {
   const { inventoryData, warehouseTotals, totalInventoryCount, products } = useInventoryContext();
 
-  const productChartData = Object.entries(inventoryData)
+  const productChartData = useMemo(() => Object.entries(inventoryData)
     .map(([productId, data]) => ({
       name: data.productName,
       // FIX: Access warehouse stock through the new nested `stock` property.
       'انبار ۱': data.stock.w1 || 0,
       'انبار ۲': data.stock.w2 || 0,
     }))
-    .filter(p => p['انبار ۱'] > 0 || p['انبار ۲'] > 0);
+    .filter(p => p['انبار ۱'] > 0 || p['انبار ۲'] > 0), [inventoryData]);
 
-  const warehouseChartData = warehouseTotals.map(w => ({
+  const warehouseChartData = useMemo(() => warehouseTotals.map(w => ({
     name: w.name.split(' ')[0] + ' ' + w.name.split(' ')[1], // Shorten name
     value: w.total,
-  }));
+  })), [warehouseTotals]);
 
   return (
     <div className="space-y-8">

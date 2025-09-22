@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../context/ToastContext';
 
 interface DeleteProductModalProps {
   isOpen: boolean;
@@ -9,26 +10,31 @@ interface DeleteProductModalProps {
 
 export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ isOpen, onClose, onConfirm, product }) => {
   const [adminPassword, setAdminPassword] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
       setAdminPassword('');
-      setError('');
+      setIsLoading(false);
     }
   }, [isOpen]);
 
   const handleConfirm = async () => {
     if (!adminPassword) {
-      setError('لطفا رمز عبور مدیر را وارد کنید.');
+      addToast('لطفا رمز عبور مدیر را وارد کنید.', 'error');
       return;
     }
     if (product) {
+      setIsLoading(true);
       try {
         await onConfirm(product.id, adminPassword);
+        addToast(`کالای "${product.name}" با موفقیت حذف شد.`, 'success');
         onClose(); // Close only on success
       } catch (err: any) {
-        setError(err.message);
+        addToast(err.message, 'error');
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -54,22 +60,28 @@ export const DeleteProductModal: React.FC<DeleteProductModalProps> = ({ isOpen, 
               autoFocus
             />
           </div>
-          {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
         </div>
         <div className="mt-6 flex justify-end space-x-2 space-x-reverse">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+            disabled={isLoading}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50"
           >
             لغو
           </button>
           <button
             type="button"
             onClick={handleConfirm}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            disabled={isLoading}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-400 w-28 flex justify-center items-center"
           >
-            حذف کالا
+            {isLoading ? (
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            ) : 'حذف کالا'}
           </button>
         </div>
       </div>

@@ -9,7 +9,6 @@ export const ProductInventory: React.FC = () => {
   const { inventoryData, warehouses, products, deleteProduct, addProduct, updateProduct, currentUser } = useInventoryContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,7 +20,7 @@ export const ProductInventory: React.FC = () => {
       .filter(p => !p.isDeleted)
       .map(p => ({
         ...p,
-        ...inventoryData[p.id]
+        ...(inventoryData[p.id] || { stock: {}, total: 0, productName: p.name }),
       }));
 
     if (!searchTerm.trim()) {
@@ -37,38 +36,29 @@ export const ProductInventory: React.FC = () => {
   const handleAddNew = () => {
     setEditingProduct(null);
     setIsModalOpen(true);
-    setError(null);
   };
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setIsModalOpen(true);
-    setError(null);
   };
 
   const handleDeleteClick = (product: Product) => {
-    setError(null);
     setDeletingProduct(product);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = (productId: string, adminPassword: string) => {
-    // Let the modal handle async logic and errors by returning the promise
+    // The modal will await this promise and handle toasts
     return deleteProduct(productId, adminPassword);
   };
 
-  const handleSave = async (id: string | null, name: string) => {
-    try {
-      setError(null);
-      if (id) {
-        await updateProduct(id, name);
-      } else {
-        await addProduct(name);
-      }
-      setIsModalOpen(false);
-    } catch (err: any) {
-      // Return error message for the modal to display
-      return err.message;
+  const handleSave = (id: string | null, name: string) => {
+    // The modal will await this promise and handle toasts
+    if (id) {
+      return updateProduct(id, name);
+    } else {
+      return addProduct(name);
     }
   };
 
@@ -110,7 +100,6 @@ export const ProductInventory: React.FC = () => {
               </button>
             )}
         </div>
-        {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

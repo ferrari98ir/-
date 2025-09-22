@@ -1,28 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import type { Product } from '../types';
+import { useToast } from '../context/ToastContext';
 
 interface ProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string | null, name: string) => Promise<string | void | undefined>;
+  onSave: (id: string | null, name: string) => Promise<void>;
   product: Product | null;
 }
 
 export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onSave, product }) => {
   const [name, setName] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
       setName(product?.name || '');
-      setError('');
+      setIsLoading(false);
     }
   }, [isOpen, product]);
 
   const handleSave = async () => {
-    const saveError = await onSave(product?.id || null, name);
-    if (saveError) {
-      setError(saveError);
+    if (!name.trim()) {
+        addToast("نام کالا نمی‌تواند خالی باشد.", "error");
+        return;
+    }
+
+    setIsLoading(true);
+    try {
+        await onSave(product?.id || null, name);
+        addToast(product ? "کالا با موفقیت ویرایش شد." : "کالای جدید با موفقیت اضافه شد.", 'success');
+        onClose();
+    } catch (err: any) {
+        addToast(err.message, 'error');
+    } finally {
+        setIsLoading(false);
     }
   };
   
@@ -45,20 +58,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
             onChange={(e) => setName(e.target.value)}
             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
           />
-          {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
         </div>
         <div className="mt-6 flex justify-end space-x-2 space-x-reverse">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+            type="button"
+            disabled={isLoading}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50"
           >
             لغو
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            type="button"
+            disabled={isLoading}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 w-20 flex justify-center items-center"
           >
-            ذخیره
+            {isLoading ? (
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            ) : 'ذخیره'}
           </button>
         </div>
       </div>

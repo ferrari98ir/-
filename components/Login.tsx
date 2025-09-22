@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useInventoryContext } from '../context/InventoryContext';
+import { useToast } from '../context/ToastContext';
 
 export const Login: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'user' | 'admin'>('user');
@@ -45,35 +46,35 @@ export const Login: React.FC = () => {
 
 const UserLoginForm = () => {
   const { login, users } = useInventoryContext();
-  const availableUsers = users.filter(u => !u.isDeleted);
+  const { addToast } = useToast();
+  const availableUsers = useMemo(() => users.filter(u => !u.isDeleted), [users]);
   
-  // Initialize state cleanly. useEffect will handle setting the default.
-  const [userId, setUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // This effect syncs the selected user ID with the available users list.
-  // It ensures a valid user is selected by default and handles cases
-  // where the selected user might be deleted.
-  useEffect(() => {
-    const userIsSelectedAndValid = userId && availableUsers.some(u => u.id === userId);
-
-    if (!userIsSelectedAndValid && availableUsers.length > 0) {
-      setUserId(availableUsers[0].id);
+  const activeUserId = useMemo(() => {
+    // If a user is selected and still exists, use it.
+    if (selectedUserId && availableUsers.some(u => u.id === selectedUserId)) {
+      return selectedUserId;
     }
-  }, [users, userId, availableUsers]);
+    // Otherwise, default to the first available user.
+    return availableUsers[0]?.id || '';
+  }, [selectedUserId, availableUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    if (!activeUserId) {
+      addToast("لطفا یک کاربر را انتخاب کنید.", "error");
+      return;
+    }
+    setIsLoading(true);
     try {
-      if (!userId) {
-        setError("لطفا یک کاربر را انتخاب کنید.");
-        return;
-      }
-      await login({ userId, password });
+      await login({ userId: activeUserId, password });
     } catch (err: any) {
-      setError(err.message);
+      addToast(err.message, "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,8 +86,8 @@ const UserLoginForm = () => {
         </label>
         <select
           id="user-select"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
+          value={activeUserId}
+          onChange={(e) => setSelectedUserId(e.target.value)}
           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
         >
           {availableUsers.length === 0 ? (
@@ -113,14 +114,18 @@ const UserLoginForm = () => {
           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
       <div>
         <button
           type="submit"
-          disabled={!userId}
+          disabled={!activeUserId || isLoading}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
         >
-          ورود
+          {isLoading ? (
+            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : 'ورود'}
         </button>
       </div>
     </form>
@@ -129,16 +134,19 @@ const UserLoginForm = () => {
 
 const AdminLoginForm = () => {
   const { login } = useInventoryContext();
+  const { addToast } = useToast();
   const [adminPassword, setAdminPassword] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setIsLoading(true);
     try {
       await login({ adminPassword });
     } catch (err: any) {
-      setError(err.message);
+      addToast(err.message, "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -158,13 +166,18 @@ const AdminLoginForm = () => {
           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
       <div>
         <button
           type="submit"
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          disabled={isLoading}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-green-400"
         >
-          ورود به عنوان مدیر
+          {isLoading ? (
+            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : 'ورود به عنوان مدیر'}
         </button>
       </div>
     </form>

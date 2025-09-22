@@ -1,45 +1,42 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { Transaction, Product, User, InventoryData } from '../types';
 import { TransactionType } from '../types';
 import { WAREHOUSES, ADMIN_PASSWORD } from '../constants';
-import { supabase } from '../firebase';
 
 type CurrentUser = User | { id: 'admin'; name: 'مدیر کل' };
 
+// --- MOCK DATA ---
+const MOCK_USERS: User[] = [
+  { id: 'u-1', name: 'علی رضایی', password: '123', isDeleted: false },
+  { id: 'u-2', name: 'سارا محمدی', password: '456', isDeleted: false },
+  { id: 'u-3', name: 'کاربر غیرفعال', password: '789', isDeleted: true },
+].sort((a, b) => a.name.localeCompare(b.name));
+
+const MOCK_PRODUCTS: Product[] = [
+  { id: 'p-1', name: 'لپتاپ مدل A', isDeleted: false },
+  { id: 'p-2', name: 'موس بی‌سیم', isDeleted: false },
+  { id: 'p-3', name: 'کیبورد مکانیکی', isDeleted: false },
+  { id: 'p-4', name: 'مانیتور گیمینگ', isDeleted: false },
+].sort((a, b) => a.name.localeCompare(b.name));
+
+const MOCK_TRANSACTIONS: Transaction[] = [
+  { id: 'tx-1', productId: 'p-1', warehouseId: 'w1', userId: 'u-1', type: TransactionType.IN, quantity: 10, timestamp: Date.now() - 200000, description: 'ورود اولیه' },
+  { id: 'tx-2', productId: 'p-2', warehouseId: 'w1', userId: 'u-2', type: TransactionType.IN, quantity: 50, timestamp: Date.now() - 180000, description: 'خرید جدید' },
+  { id: 'tx-3', productId: 'p-1', warehouseId: 'w2', userId: 'u-1', type: TransactionType.IN, quantity: 5, timestamp: Date.now() - 150000, description: 'انتقال از تامین کننده' },
+  { id: 'tx-4', productId: 'p-2', warehouseId: 'w1', userId: 'u-2', type: TransactionType.OUT, quantity: 10, timestamp: Date.now() - 100000, description: 'فروش به مشتری' },
+  { id: 'tx-5', productId: 'p-3', warehouseId: 'w2', userId: 'u-1', type: TransactionType.IN, quantity: 20, timestamp: Date.now() - 50000, description: 'موجودی اولیه' },
+].sort((a, b) => b.timestamp - a.timestamp);
+
+
 export const useInventory = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const [productsRes, usersRes, transactionsRes] = await Promise.all([
-                supabase.from('products').select('*').order('name'),
-                supabase.from('users').select('*').order('name'),
-                supabase.from('transactions').select('*').order('timestamp', { ascending: false })
-            ]);
-
-            if (productsRes.error) throw productsRes.error;
-            if (usersRes.error) throw usersRes.error;
-            if (transactionsRes.error) throw transactionsRes.error;
-            
-            setProducts(productsRes.data || []);
-            setUsers(usersRes.data || []);
-            setTransactions(transactionsRes.data || []);
-
-        } catch (error) {
-            console.error("Error fetching initial data from Supabase:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    fetchData();
-  }, []);
+  // No more loading or errors from a database
+  const loading = false;
+  const dbError = null;
 
   const inventoryData = useMemo<InventoryData>(() => {
     const inventory: InventoryData = {};
@@ -76,27 +73,16 @@ export const useInventory = () => {
         throw new Error('رمز عبور مدیر صحیح نیست.');
       }
     } else if (credentials.userId && credentials.password) {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', credentials.userId)
-        .eq('isDeleted', false)
-        .single();
-
-      if (error || !data) {
-        console.error(error);
-        throw new Error('نام کاربری یا رمز عبور صحیح نیست.');
-      }
-
-      if (data.password === credentials.password) {
-        setCurrentUser(data);
+      const user = users.find(u => u.id === credentials.userId && !u.isDeleted);
+      if (user && user.password === credentials.password) {
+        setCurrentUser(user);
       } else {
         throw new Error('نام کاربری یا رمز عبور صحیح نیست.');
       }
     } else {
       throw new Error('اطلاعات ورود نامعتبر است.');
     }
-  }, []);
+  }, [users]);
 
   const logout = useCallback(() => {
     setCurrentUser(null);
@@ -119,19 +105,13 @@ export const useInventory = () => {
       if (currentStock < quantity) throw new Error('موجودی انبار کافی نیست.');
     }
     
-    const transactionForDb: Transaction = { 
+    const transactionForState: Transaction = { 
         ...newTransaction, 
         id: `tx-${Date.now()}`,
         timestamp: Date.now() 
     };
     
-    const { error } = await supabase.from('transactions').insert([transactionForDb]);
-    if (error) {
-        console.error('Supabase error adding transaction:', error);
-        throw new Error('خطا در ارتباط با دیتابیس.');
-    }
-    
-    setTransactions(prev => [transactionForDb, ...prev]);
+    setTransactions(prev => [transactionForState, ...prev].sort((a, b) => b.timestamp - a.timestamp));
   }, [inventoryData, users, currentUser]);
 
   const addUser = useCallback(async (name: string, password: string, adminPassword: string) => {
@@ -145,12 +125,6 @@ export const useInventory = () => {
         isDeleted: false 
     };
     
-    const { error } = await supabase.from('users').insert([newUser]);
-    if (error) {
-        console.error('Supabase error adding user:', error);
-        throw new Error('خطا در افزودن کاربر به دیتابیس.');
-    }
-    
     setUsers(prev => [...prev, newUser].sort((a, b) => a.name.localeCompare(b.name)));
   }, []);
 
@@ -159,12 +133,8 @@ export const useInventory = () => {
     const updateData: { name?: string; password?: string } = {};
     if (updates.name?.trim()) updateData.name = updates.name.trim();
     if (updates.password) updateData.password = updates.password;
+
     if (Object.keys(updateData).length > 0) {
-      const { error } = await supabase.from('users').update(updateData).eq('id', userId);
-      if (error) {
-          console.error('Supabase error updating user:', error);
-          throw new Error('خطا در ویرایش کاربر در دیتابیس.');
-      }
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updateData } : u));
     }
   }, []);
@@ -173,12 +143,6 @@ export const useInventory = () => {
     if (adminPassword !== ADMIN_PASSWORD) throw new Error('رمز عبور مدیر صحیح نیست.');
     const activeUsers = users.filter(u => !u.isDeleted);
     if (activeUsers.length <= 1) throw new Error('حداقل یک کاربر فعال باید در سیستم وجود داشته باشد.');
-    
-    const { error } = await supabase.from('users').update({ isDeleted: true }).eq('id', userId);
-    if (error) {
-        console.error('Supabase error deleting user:', error);
-        throw new Error('خطا در حذف کاربر در دیتابیس.');
-    }
     
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, isDeleted: true } : u));
   }, [users]);
@@ -195,12 +159,6 @@ export const useInventory = () => {
         isDeleted: false 
     };
     
-    const { error } = await supabase.from('products').insert([newProduct]);
-    if (error) {
-        console.error('Supabase error adding product:', error);
-        throw new Error('خطا در افزودن کالا به دیتابیس.');
-    }
-
     setProducts(prev => [...prev, newProduct].sort((a, b) => a.name.localeCompare(b.name)));
   }, [products, currentUser]);
 
@@ -208,12 +166,6 @@ export const useInventory = () => {
     if (!currentUser || currentUser.id !== 'admin') throw new Error('فقط مدیر مجاز به ویرایش کالا است.');
     if (!name.trim()) throw new Error('نام کالا نمی‌تواند خالی باشد.');
     
-    const { error } = await supabase.from('products').update({ name: name.trim() }).eq('id', id);
-    if (error) {
-        console.error('Supabase error updating product:', error);
-        throw new Error('خطا در ویرایش کالا در دیتابیس.');
-    }
-
     setProducts(prev => prev.map(p => p.id === id ? { ...p, name: name.trim() } : p));
   }, [currentUser]);
 
@@ -254,31 +206,13 @@ export const useInventory = () => {
       description: 'ثبت حذف کالا در سیستم',
     });
     
-    const { error: txError } = await supabase.from('transactions').insert(newTransactions);
-    if (txError) {
-        console.error('Supabase error adding deletion transactions:', txError);
-        throw new Error('خطا در ثبت تراکنش‌های حذف کالا.');
-    }
-    
-    const { error: productError } = await supabase.from('products').update({ isDeleted: true }).eq('id', id);
-    if (productError) {
-        console.error('Supabase error deleting product:', productError);
-        throw new Error('خطا در حذف کالا از دیتابیس.');
-    }
-
-    setTransactions(prev => [...newTransactions, ...prev]);
+    setTransactions(prev => [...newTransactions, ...prev].sort((a, b) => b.timestamp - a.timestamp));
     setProducts(prev => prev.map(p => p.id === id ? { ...p, isDeleted: true } : p));
   }, [inventoryData, currentUser]);
 
   const deleteTransaction = useCallback(async (transactionId: string, adminPassword: string) => {
     if (!currentUser || currentUser.id !== 'admin') throw new Error('فقط مدیر مجاز به حذف تراکنش است.');
     if (adminPassword !== ADMIN_PASSWORD) throw new Error('رمز عبور مدیر صحیح نیست.');
-    
-    const { error } = await supabase.from('transactions').delete().eq('id', transactionId);
-    if (error) {
-        console.error('Supabase error deleting transaction:', error);
-        throw new Error('خطا در حذف تراکنش از دیتابیس.');
-    }
     
     setTransactions(prev => prev.filter(tx => tx.id !== transactionId));
   }, [currentUser]);
@@ -303,6 +237,6 @@ export const useInventory = () => {
   return {
     transactions, addTransaction, inventoryData, products, warehouses: WAREHOUSES, users, addUser, updateUser,
     deleteUser, addProduct, updateProduct, deleteProduct, deleteTransaction, warehouseTotals,
-    totalInventoryCount, currentUser, login, logout, loading,
+    totalInventoryCount, currentUser, login, logout, loading, dbError,
   };
 };

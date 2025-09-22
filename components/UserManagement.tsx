@@ -1,40 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useInventoryContext } from '../context/InventoryContext';
 import { Card } from './Card';
 import type { User } from '../types';
 import { EditUserModal } from './EditUserModal';
 import { DeleteUserModal } from './DeleteUserModal';
+import { useToast } from '../context/ToastContext';
 
 export const UserManagement: React.FC = () => {
   const { users, addUser, updateUser, deleteUser } = useInventoryContext();
+  const { addToast } = useToast();
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
+  const activeUsers = useMemo(() => users.filter(u => !u.isDeleted), [users]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
     if (!adminPassword) {
-        setError('رمز عبور مدیر برای افزودن کاربر الزامی است.');
+        addToast('رمز عبور مدیر برای افزودن کاربر الزامی است.', 'error');
         return;
     }
+    setIsLoading(true);
     try {
       await addUser(newUserName, newUserPassword, adminPassword);
-      setSuccess(`کاربر "${newUserName}" با موفقیت اضافه شد.`);
+      addToast(`کاربر "${newUserName}" با موفقیت اضافه شد.`, 'success');
       setNewUserName('');
       setNewUserPassword('');
       setAdminPassword('');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.message);
+      addToast(err.message, 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -109,21 +112,24 @@ export const UserManagement: React.FC = () => {
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {success && <p className="text-sm text-green-600">{success}</p>}
-
           <button
               type="submit"
-              className="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              disabled={isLoading}
+              className="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
           >
-              افزودن کاربر
+              {isLoading ? (
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+              ) : 'افزودن کاربر'}
           </button>
         </form>
         
         <div>
           <h3 className="text-md font-medium text-gray-600 mb-2">کاربران فعلی</h3>
           <ul className="space-y-2 max-h-64 overflow-y-auto">
-              {users.filter(u => !u.isDeleted).map(user => (
+              {activeUsers.map(user => (
                   <li key={user.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-md text-sm">
                     <span>{user.name}</span>
                     <div className="space-x-2 space-x-reverse">

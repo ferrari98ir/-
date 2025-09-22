@@ -1,14 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useInventoryContext } from '../context/InventoryContext';
 import { Card } from './Card';
 import { TransactionType, type Transaction } from '../types';
 import { DeleteTransactionModal } from './DeleteTransactionModal';
+import { useToast } from '../context/ToastContext';
+
+const ITEMS_PER_PAGE = 10;
 
 export const TransactionHistory: React.FC = () => {
   const { transactions, products, warehouses, users, deleteTransaction, currentUser } = useInventoryContext();
+  const { addToast } = useToast();
   const [selectedProduct, setSelectedProduct] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
 
@@ -46,32 +50,40 @@ export const TransactionHistory: React.FC = () => {
         if (selectedProduct && tx.productId !== selectedProduct) {
           return false;
         }
-        if (startDate) {
+        if (selectedDate) {
           const txDate = new Date(tx.timestamp);
-          const filterDate = new Date(startDate);
-          filterDate.setHours(0, 0, 0, 0); // Start of the day
-          if (txDate < filterDate) return false;
-        }
-        if (endDate) {
-          const txDate = new Date(tx.timestamp);
-          const filterDate = new Date(endDate);
-          filterDate.setHours(23, 59, 59, 999); // End of the day
-          if (txDate > filterDate) return false;
+          const filterDateStart = new Date(selectedDate);
+          filterDateStart.setHours(0, 0, 0, 0); // Start of the day
+          const filterDateEnd = new Date(selectedDate);
+          filterDateEnd.setHours(23, 59, 59, 999); // End of the day
+          if (txDate < filterDateStart || txDate > filterDateEnd) return false;
         }
         return true;
       })
       .sort((a, b) => b.timestamp - a.timestamp);
-  }, [transactions, selectedProduct, startDate, endDate, products]);
+  }, [transactions, selectedProduct, selectedDate, products]);
+
+  // Reset to first page whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedProduct, selectedDate]);
+
+  const pageCount = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
+
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredTransactions.slice(startIndex, endIndex);
+  }, [filteredTransactions, currentPage]);
 
   const handleClearFilters = () => {
     setSelectedProduct('');
-    setStartDate('');
-    setEndDate('');
+    setSelectedDate('');
   };
 
   const handleExportCSV = () => {
     if (filteredTransactions.length === 0) {
-      alert('هیچ تراکنشی برای خروجی گرفتن وجود ندارد.');
+      addToast('هیچ تراکنشی برای خروجی گرفتن وجود ندارد.', 'error');
       return;
     }
 
@@ -114,10 +126,7 @@ export const TransactionHistory: React.FC = () => {
   };
 
   const handleConfirmDelete = (transactionId: string, adminPassword: string) => {
-    if (!isAdmin) {
-      throw new Error("شما مجاز به حذف تراکنش نیستید.");
-    }
-    // The modal will await this promise
+    // The modal will await this promise and handle toasts.
     return deleteTransaction(transactionId, adminPassword);
   };
 
@@ -136,7 +145,7 @@ export const TransactionHistory: React.FC = () => {
         } : null}
       />
       <Card title="تاریخچه تراکنش‌ها">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
           {/* Product Filter */}
           <div>
             <label htmlFor="product-filter" className="block text-sm font-medium text-gray-700">کالا</label>
@@ -150,25 +159,14 @@ export const TransactionHistory: React.FC = () => {
               {products.filter(p => !p.isDeleted).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          {/* Start Date Filter */}
+          {/* Date Filter */}
           <div>
-            <label htmlFor="start-date-filter" className="block text-sm font-medium text-gray-700">از تاریخ</label>
+            <label htmlFor="date-filter" className="block text-sm font-medium text-gray-700">تاریخ</label>
             <input
               type="date"
-              id="start-date-filter"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          {/* End Date Filter */}
-          <div>
-            <label htmlFor="end-date-filter" className="block text-sm font-medium text-gray-700">تا تاریخ</label>
-            <input
-              type="date"
-              id="end-date-filter"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              id="date-filter"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -204,8 +202,8 @@ export const TransactionHistory: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map(tx => (
+              {paginatedTransactions.length > 0 ? (
+                paginatedTransactions.map(tx => (
                   <tr key={tx.id} className="hover:bg-gray-50">
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{productMap[tx.productId] || 'کالای حذف شده'}</td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{tx.type === TransactionType.DELETE ? '-' : warehouseMap[tx.warehouseId]}</td>
@@ -249,6 +247,74 @@ export const TransactionHistory: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-b-lg">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                قبلی
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
+                disabled={currentPage === pageCount}
+                className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                بعدی
+              </button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div>
+                {filteredTransactions.length > 0 &&
+                  <p className="text-sm text-gray-700">
+                    نمایش <span className="font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> تا <span className="font-medium">{Math.min(currentPage * ITEMS_PER_PAGE, filteredTransactions.length)}</span> از <span className="font-medium">{filteredTransactions.length}</span> تراکنش
+                  </p>
+                }
+              </div>
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  {Array.from({ length: pageCount }, (_, i) => i + 1).map(pageNumber => (
+                    <button
+                      key={pageNumber}
+                      onClick={() => setCurrentPage(pageNumber)}
+                      aria-current={pageNumber === currentPage ? 'page' : undefined}
+                      className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                        pageNumber === currentPage
+                          ? 'z-10 bg-indigo-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
+                    disabled={currentPage === pageCount}
+                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                       <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-1.06.02L7.47 9.5a.75.75 0 010 1.08l4.25 4.25a.75.75 0 11-1.06-1.06L9.19 10l3.6-3.79a.75.75 0 011.06-.02z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
     </>
   );
